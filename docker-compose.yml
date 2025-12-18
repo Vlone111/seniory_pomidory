@@ -61,7 +61,6 @@ services:
       - keycloak_net
 
   #krakenD
-
   krakend:
     image: devopsfaith/krakend:2.1.2
     container_name: krakend
@@ -76,9 +75,9 @@ services:
       - microservices
 
   #бд для категорий товаров
-  goods_categories:
+  goods_categories_db:
     image: postgres:15
-    container_name: goods-categories
+    container_name: goods_categories_db
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
@@ -86,7 +85,7 @@ services:
     ports:
       - "5434:5432"
     volumes:
-      - postgres_goods-categories_data:/var/lib/postgresql/data
+      - postgres_goods_categories_db_data:/var/lib/postgresql/data
     networks:
       - microservices
     healthcheck:
@@ -107,7 +106,7 @@ services:
       - SPRING_PROFILES_ACTIVE=prod
       - DB_HOST=postgres
     depends_on:
-      goods_categories:
+      goods_categories_db:
         condition: service_healthy
     networks:
       - microservices
@@ -115,7 +114,7 @@ services:
   #бд для корзины
   basket_db:
     image: postgres:15
-    container_name: basket-db
+    container_name: basket_db
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
@@ -123,7 +122,7 @@ services:
     ports:
       - "5435:5432"
     volumes:
-      - postgres_basket_data:/var/lib/postgresql/data
+      - postgres_basket_db_data:/var/lib/postgresql/data
     networks:
       - microservices
     healthcheck:
@@ -169,11 +168,11 @@ services:
     restart: always
 
   #микросервис для обмена файлами
-  fileservice:
+  file_service:
     build:
       context: ./fileservice
       dockerfile: Dockerfile
-    container_name: fileservice
+    container_name: file_service
     ports:
       - "8007:8080"
     environment:
@@ -181,12 +180,50 @@ services:
     networks:
       - microservices
 
+
+  #бд для конструктора магазину
+  shop_db:
+    image: postgres:15
+    container_name: shop_db
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres_shop_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  #микросервис для конструктора магазина
+  shop_service:
+    build:
+      context: ./shop
+      dockerfile: Dockerfile
+    container_name: shop_service
+    ports:
+      - "8008:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    depends_on:
+      shop_db:
+        condition: service_healthy
+    networks:
+      - microservices
+
 volumes:
   postgres_keycloak_data:
-  postgres_goods-categories_data:
+  postgres_goods_categories_db_data:
   redis_data:
-  postgres_basket_data:
+  postgres_basket_db_data:
   minio_data:
+  postgres_shop_db_data:
 
 networks:
   #нетворк для кейклоака
