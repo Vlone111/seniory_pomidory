@@ -28,7 +28,7 @@ public class Shop {
     private String designCode;
 
     @Column(nullable = false)
-    private UUID owner_id;
+    private UUID ownerId;
     
 
 }
