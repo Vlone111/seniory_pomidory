@@ -1,11 +1,15 @@
-FROM eclipse-temurin:21-jdk AS build
-WORKDIR /app
-COPY gradle ./gradle
-COPY gradlew build.gradle settings.gradle ./
-RUN chmod +x gradlew && ./gradlew dependencies --no-daemon
-COPY src ./src
-RUN ./gradlew clean bootJar -x test --no-daemon
+# Используем официальный образ Gradle
+FROM gradle:8.5-jdk21 AS build
 
+WORKDIR /app
+
+# Копируем все файлы проекта
+COPY . .
+
+# Собираем проект (используем gradle из PATH)
+RUN gradle clean bootJar -x test --no-daemon
+
+# Финальный образ
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 COPY --from=build /app/build/libs/*.jar app.jar
