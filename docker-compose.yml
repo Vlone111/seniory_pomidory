@@ -95,6 +95,7 @@ services:
     networks:
       - microservices
       - fashion-network
+      - observability
 
   cartservice:
     build: ./cartservice
@@ -114,6 +115,7 @@ services:
       - rabbitmq
     networks:
       - microservices
+      - observability
 
   newsservice:
     build: ./newsservice
@@ -133,6 +135,7 @@ services:
     networks:
       - microservices
       - fashion-network
+      - observability
 
   orderservice:
     build: ./orderservice
@@ -157,6 +160,7 @@ services:
         condition: service_started
     networks:
       - microservices
+      - observability
 
   basket:
     build: ./cartservice
@@ -209,6 +213,7 @@ services:
       - microservices
       - files
       - fashion-network
+      - observability
     
     
   userservice:
@@ -232,6 +237,7 @@ services:
       - microservices
       - keycloak_net
       - fashion-network
+      - observability
 
   shop:
     build: ./shop
@@ -248,6 +254,7 @@ services:
     networks:
       - microservices
       - fashion-network
+      - observability
 
   # Frontend (Admin Panel)
   frontend:
