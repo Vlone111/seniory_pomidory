@@ -63,3 +63,20 @@ logging:
     com.marketplace.cartservice: ${LOG_LEVEL:DEBUG}
     org.springframework.amqp: ${LOG_LEVEL:INFO}
     org.springframework.data.redis: ${LOG_LEVEL:DEBUG}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# OpenTelemetry - Tempo tracing
+opentelemetry:
+  exporter:
+    otlp:
+      endpoint: http://alloy:4317
+      protocol: grpc
+  resource:
+    attributes:
+      service.name: ${spring.application.name}
+      service.version: "1.0.0"
+  trace:
+    exporter:
+      otlp:
+        enabled: true

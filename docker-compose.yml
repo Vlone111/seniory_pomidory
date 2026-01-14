@@ -114,6 +114,7 @@ services:
       - rabbitmq
     networks:
       - microservices
+      - observability
 
   newsservice:
     build: ./newsservice
@@ -159,7 +160,7 @@ services:
       - microservices
 
   basket:
-    build: ./basket
+    build: ./cartservice
     container_name: basket
     ports:
       - "8086:8080"
@@ -193,6 +194,7 @@ services:
       - microservices
       - files
       - fashion-network
+      - observability
     
     
   userservice:
@@ -216,6 +218,7 @@ services:
       - microservices
       - keycloak_net
       - fashion-network
+      - observability
 
   shop:
     build: ./shop
@@ -232,6 +235,7 @@ services:
     networks:
       - microservices
       - fashion-network
+      - observability
 
   # Frontend (Admin Panel)
   frontend:
@@ -339,7 +343,7 @@ services:
     image: grafana/grafana:10.3.1
     container_name: grafana
     ports:
-      - "3000:3000"
+      - "3400:3000"
     depends_on:
       prometheus:
         condition: service_healthy
