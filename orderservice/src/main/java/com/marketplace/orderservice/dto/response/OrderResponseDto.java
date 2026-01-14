@@ -26,4 +26,13 @@ public class OrderResponseDto {
     private BigDecimal totalAmount;
     private LocalDateTime createdAt;
     private List<OrderItemResponseDto> items;
+
+    // CDEK delivery fields
+    private String cdekPvzCode;
+    private String cdekPvzAddress;
+    private String cdekCityCode;
+    private Integer cdekTariffCode;
+    private BigDecimal cdekDeliverySum;
+    private Integer cdekPeriodMin;
+    private Integer cdekPeriodMax;
 }

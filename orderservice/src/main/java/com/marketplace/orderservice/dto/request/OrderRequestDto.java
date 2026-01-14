@@ -29,4 +29,6 @@ public class OrderRequestDto {
     @NotEmpty(message = "Order must contain at least one item")
     @Valid
     private List<OrderItemRequestDto> items;
+
+    private CdekDeliveryDto cdekDelivery;
 }

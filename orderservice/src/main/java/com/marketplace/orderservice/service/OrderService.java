@@ -61,19 +61,38 @@ public class OrderService {
                 .map(item -> item.getPricePerItem().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        // Use CDEK delivery sum if present, otherwise use delivery method price
+        BigDecimal deliveryPrice = (requestDto.getCdekDelivery() != null && requestDto.getCdekDelivery().getDeliverySum() != null)
+                ? requestDto.getCdekDelivery().getDeliverySum()
+                : deliveryMethod.getPrice();
+
         BigDecimal totalAmount = itemsTotal
-                .add(deliveryMethod.getPrice())
+                .add(deliveryPrice)
                 .add(paymentMethod.getPrice());
 
         // Create order
-        Order order = Order.builder()
+        Order.OrderBuilder orderBuilder = Order.builder()
                 .userId(userId)
                 .recipientId(requestDto.getRecipientId())
                 .deliveryMethod(deliveryMethod)
                 .paymentMethod(paymentMethod)
                 .status(OrderStatus.NEW)
-                .totalAmount(totalAmount)
-                .build();
+                .totalAmount(totalAmount);
+
+        // Add CDEK delivery data if present
+        if (requestDto.getCdekDelivery() != null) {
+            var cdek = requestDto.getCdekDelivery();
+            orderBuilder
+                    .cdekPvzCode(cdek.getPvzCode())
+                    .cdekPvzAddress(cdek.getPvzAddress())
+                    .cdekCityCode(cdek.getCityCode())
+                    .cdekTariffCode(cdek.getTariffCode())
+                    .cdekDeliverySum(cdek.getDeliverySum())
+                    .cdekPeriodMin(cdek.getPeriodMin())
+                    .cdekPeriodMax(cdek.getPeriodMax());
+        }
+
+        Order order = orderBuilder.build();
 
         // Add order items
         for (OrderItemRequestDto itemDto : requestDto.getItems()) {

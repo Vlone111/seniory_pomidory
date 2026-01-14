@@ -58,6 +58,28 @@ public class Order {
     @Builder.Default
     private List<OrderItem> items = new ArrayList<>();
 
+    // CDEK delivery fields
+    @Column(name = "cdek_pvz_code", length = 50)
+    private String cdekPvzCode;
+
+    @Column(name = "cdek_pvz_address", length = 500)
+    private String cdekPvzAddress;
+
+    @Column(name = "cdek_city_code", length = 20)
+    private String cdekCityCode;
+
+    @Column(name = "cdek_tariff_code")
+    private Integer cdekTariffCode;
+
+    @Column(name = "cdek_delivery_sum", precision = 10, scale = 2)
+    private BigDecimal cdekDeliverySum;
+
+    @Column(name = "cdek_period_min")
+    private Integer cdekPeriodMin;
+
+    @Column(name = "cdek_period_max")
+    private Integer cdekPeriodMax;
+
     public void addItem(OrderItem item) {
         items.add(item);
         item.setOrder(this);

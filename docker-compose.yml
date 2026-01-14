@@ -248,6 +248,30 @@ services:
     networks:
       - fashion-network
 
+  # Client Storefront (Customer-facing)
+  client-storefront:
+    build:
+      context: ./client-storefront
+      dockerfile: Dockerfile.dev
+    container_name: client-storefront
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=development
+      - DOCKER_ENV=true
+      - NEXT_PUBLIC_API_URL=
+      - NEXT_PUBLIC_SHOP_DOMAIN=fashion-store
+    depends_on:
+      - shop
+      - productservice
+      - orderservice
+      - cartservice
+    networks:
+      - microservices
+      - fashion-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   #rabbitmq
   rabbitmq:
     image: rabbitmq:3-management
