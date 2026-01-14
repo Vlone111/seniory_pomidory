@@ -109,8 +109,11 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         log.info("Order created successfully with id: {}", savedOrder.getId());
 
-        // Publish RabbitMQ events
-        publishStockDecreaseEvents(requestDto.getItems());
+        // НЕ отправляем события на уменьшение остатков при создании заказа
+        // Остатки уменьшаются только после подтверждения оплаты через webhook
+        // publishStockDecreaseEvents(requestDto.getItems());
+        
+        // Отправляем событие о создании заказа (для уведомлений и т.д.)
         publishOrderCompletedEvent(userId, savedOrder.getId());
 
         return orderMapper.toOrderResponseDto(savedOrder);

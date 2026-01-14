@@ -29,21 +29,42 @@ public class YooKassaService {
     private final YooKassaPaymentRepository paymentRepository;
     
     public Mono<YooKassaPaymentResponse> createPayment(String amount, String currency, String description) {
-        log.info("Creating YooKassa payment for amount: {} {}, description: {}", amount, currency, description);
+        return createPayment(amount, currency, description, null, null);
+    }
+
+    public Mono<YooKassaPaymentResponse> createPayment(String amount, String currency, String description, 
+                                                        String orderId, String returnUrl) {
+        log.info("Creating YooKassa payment for amount: {} {}, description: {}, orderId: {}", 
+                amount, currency, description, orderId);
         
         String idempotenceKey = UUID.randomUUID().toString();
         String authHeader = createAuthHeader();
+        
+        // Используем redirect для редиректа на страницу оплаты YooKassa
+        String effectiveReturnUrl = (returnUrl != null && !returnUrl.isEmpty()) 
+                ? returnUrl 
+                : "http://localhost:3001/checkout?payment_status=success";
+        
+        YooKassaPaymentRequest.Confirmation confirmation = YooKassaPaymentRequest.Confirmation.builder()
+                .type("redirect")
+                .returnUrl(effectiveReturnUrl)
+                .build();
+        
+        // Добавляем orderId в metadata если есть
+        java.util.Map<String, String> metadata = null;
+        if (orderId != null && !orderId.isEmpty()) {
+            metadata = java.util.Map.of("order_id", orderId);
+        }
         
         YooKassaPaymentRequest request = YooKassaPaymentRequest.builder()
                 .amount(YooKassaPaymentRequest.Amount.builder()
                         .value(amount)
                         .currency(currency)
                         .build())
-                .confirmation(YooKassaPaymentRequest.Confirmation.builder()
-                        .type("embedded")
-                        .build())
+                .confirmation(confirmation)
                 .capture(true)
                 .description(description)
+                .metadata(metadata)
                 .build();
         
         log.info("Request payload: {}", request);
@@ -100,20 +121,40 @@ public class YooKassaService {
                     .currency(response.getAmount().getCurrency())
                     .description(response.getDescription())
                     .status(response.getStatus())
-                    .confirmationToken(response.getConfirmation().getConfirmationToken())
                     .paid(response.isPaid())
                     .test(response.isTest())
                     .refundable(response.isRefundable())
                     .createdAt(LocalDateTime.parse(response.getCreatedAt().replace("Z", "")));
             
-            // Добавляем metadata только если оно не null
+            // Для redirect типа сохраняем URL, для embedded - токен
+            if (response.getConfirmation() != null) {
+                if (response.getConfirmation().getConfirmationToken() != null) {
+                    builder.confirmationToken(response.getConfirmation().getConfirmationToken());
+                } else if (response.getConfirmation().getConfirmationUrl() != null) {
+                    builder.confirmationToken(response.getConfirmation().getConfirmationUrl());
+                }
+            }
+            
+            // Добавляем metadata и orderId если есть
             if (response.getMetadata() instanceof java.util.Map) {
-                builder.metadata((java.util.Map<String, Object>) response.getMetadata());
+                @SuppressWarnings("unchecked")
+                java.util.Map<String, Object> metadata = (java.util.Map<String, Object>) response.getMetadata();
+                builder.metadata(metadata);
+                
+                // Извлекаем orderId из metadata
+                Object orderIdObj = metadata.get("order_id");
+                if (orderIdObj != null) {
+                    try {
+                        builder.orderId(UUID.fromString(orderIdObj.toString()));
+                    } catch (IllegalArgumentException e) {
+                        log.warn("Invalid orderId format in metadata: {}", orderIdObj);
+                    }
+                }
             }
             
             YooKassaPayment payment = builder.build();
             paymentRepository.save(payment);
-            log.info("Payment saved to database with ID: {}", payment.getId());
+            log.info("Payment saved to database with ID: {}, orderId: {}", payment.getId(), payment.getOrderId());
         } catch (Exception e) {
             log.error("Error saving payment to database: {}", e.getMessage(), e);
         }

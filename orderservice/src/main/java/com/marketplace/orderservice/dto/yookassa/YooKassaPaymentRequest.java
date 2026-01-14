@@ -24,6 +24,9 @@ public class YooKassaPaymentRequest {
     @JsonProperty("description")
     private String description;
     
+    @JsonProperty("metadata")
+    private java.util.Map<String, String> metadata;
+    
     @Data
     @Builder
     @NoArgsConstructor
@@ -43,5 +46,8 @@ public class YooKassaPaymentRequest {
     public static class Confirmation {
         @JsonProperty("type")
         private String type;
+        
+        @JsonProperty("return_url")
+        private String returnUrl;
     }
 }
