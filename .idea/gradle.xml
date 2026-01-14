@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleMigrationSettings" migrationVersion="1" />
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/basket" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/basket" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/fileservice" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/fileservice" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/goodscategory" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/goodscategory" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/shop" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/shop" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+      <GradleProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$/userservice" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$/userservice" />
+          </set>
+        </option>
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>

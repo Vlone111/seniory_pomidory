@@ -33,7 +33,6 @@ services:
     command: start-dev --import-realm --metrics-enabled=true
     ports:
       - "8080:8080"
-      - "9000:9000"
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://db:5432/keycloak_postgres
@@ -55,26 +54,107 @@ services:
         condition: service_healthy
         
   krakend:
-    image: devopsfaith/krakend:2.1.2
+    image: devopsfaith/krakend:2.9
     container_name: krakend
     ports:
-      - "8081:8080"
+      - "8081:8081"
     volumes:
       - ./architecture/krakend:/etc/krakend
     networks:
       - keycloak_net
       - microservices
-
-  goodscategory:
-    build: ./goodscategory
-    container_name: goodscategory
-    ports:
-      - "8005:8080"
+      - fashion-network
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      - FC_ENABLE=1
+      - FC_PARTIALS=/etc/krakend
+      - FC_TEMPLATES=/etc/krakend
+    depends_on:
+      - keycloak
+
+  productservice:
+    build: ./productservice
+    container_name: productservice
+    ports:
+      - "8083:8083"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: productdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin
+      SERVER_PORT: 8083
     depends_on:
       db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_started
+    networks:
+      - microservices
+      - fashion-network
+
+  cartservice:
+    build: ./cartservice
+    container_name: cartservice
+    ports:
+      - "8084:8084"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin
+      SERVER_PORT: 8084
+    depends_on:
+      - redis
+      - rabbitmq
+    networks:
+      - microservices
+
+  newsservice:
+    build: ./newsservice
+    container_name: newsservice
+    ports:
+      - "8085:8085"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: newsdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      SERVER_PORT: 8085
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - microservices
+      - fashion-network
+
+  orderservice:
+    build: ./orderservice
+    container_name: orderservice
+    ports:
+      - "8087:8087"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: orderdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin
+      SERVER_PORT: 8087
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
     networks:
       - microservices
 
@@ -82,9 +162,11 @@ services:
     build: ./basket
     container_name: basket
     ports:
-      - "8006:8080"
+      - "8086:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/basket_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
     depends_on:
       db:
         condition: service_healthy
@@ -95,29 +177,76 @@ services:
     build: ./fileservice
     container_name: fileservice
     ports:
-      - "8007:8080"
+      - "8082:8082"
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      MINIO_ENDPOINT: minio-storage
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: admin1234
+      MINIO_BUCKET_NAME: fashionconstruct
+      MINIO_PUBLIC_URL: http://localhost:9000
+      MINIO_SECURE: "false"
+      SERVER_PORT: 8082
     depends_on:
       - minio
     networks:
       - microservices
       - files
+      - fashion-network
     
     
   userservice:
     build: ./userservice
     container_name: userservice
     ports:
-      - "8008:8080"
+      - "8088:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/userservice_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_USERNAME: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+    networks:
+      - microservices
+      - keycloak_net
+      - fashion-network
+
+  shop:
+    build: ./shop
+    container_name: shop
+    ports:
+      - "8089:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/shop_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
     depends_on:
       db:
         condition: service_healthy
     networks:
       - microservices
-      - keycloak_net
+      - fashion-network
+
+  # Frontend (Admin Panel)
+  frontend:
+    build:
+      context: ./fashion
+      args:
+        VITE_API_URL: http://localhost:8081
+        VITE_FAKE_AUTH: "false"
+    container_name: frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - krakend
+    networks:
+      - fashion-network
 
   #rabbitmq
   rabbitmq:
@@ -242,7 +371,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_MULTIPLE_DATABASES: auth_db,basket_db,shop_db,keycloak_postgres,goodscategory_db,userservice_db
+      POSTGRES_MULTIPLE_DATABASES: basket_db,shop_db,keycloak_postgres,userservice_db,productdb,cartdb,newsdb,orderdb
     volumes:
       - ./init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
       - postgres_data:/var/lib/postgresql_data
@@ -285,6 +414,9 @@ networks:
   observability:
     driver: bridge
   files:
+    driver: bridge
+  # Fashion admin frontend network
+  fashion-network:
     driver: bridge
 
 

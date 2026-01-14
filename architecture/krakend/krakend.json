@@ -4,7 +4,7 @@
   "timeout": "5000ms",
   "name": "KrakenD - API Gateway",
   "output_encoding": "no-op",
-  "port": 8080,
+  "port": 8081,
   "input_headers": [
     "Content-Type",
     "Host",
@@ -13,22 +13,95 @@
     "X-Forwarded-For",
     "Origin",
     "Cookie",
-    "Authorization"
+    "Authorization",
+    "X-User-Role",
+    "X-User-Id"
   ],
+  "extra_config": {
+    "security/cors": {
+      "allow_origins": ["http://localhost:3000"],
+      "allow_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+      "allow_headers": ["*"],
+      "expose_headers": ["Content-Length"],
+      "max_age": "43200s",
+      "allow_credentials": false,
+      "debug": true
+    }
+  },
   "endpoints": [
+    {
+      "endpoint": "/api/register",
+      "method": "POST",
+      "output_encoding": "json",
+      "input_headers": ["Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/auth/registerowner",
+          "method": "POST",
+          "host": ["http://userservice:8080"],
+          "encoding": "json"
+        }
+      ]
+    },
     {
       "endpoint": "/register",
       "method": "POST",
+      "output_encoding": "json",
+      "input_headers": ["Content-Type"],
       "backend": [
         {
           "url_pattern": "/auth/register",
           "method": "POST",
-          "host": [
-            "http://userservice:8080"
-          ],
-          "encoding": "no-op"       
+          "host": ["http://userservice:8080"],
+          "encoding": "json"
         }
       ]
+    },
+    {
+      "endpoint": "/auth/registerowner",
+      "method": "POST",
+      "output_encoding": "json",
+      "input_headers": ["Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/auth/registerowner",
+          "method": "POST",
+          "host": ["http://userservice:8080"],
+          "encoding": "json"
+        }
+      ]
+    },
+    {
+      "endpoint": "/auth/user/{userId}/roles",
+      "method": "GET",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/auth/user/{userId}/roles",
+          "method": "GET",
+          "encoding": "json",
+          "host": [
+            "http://userservice:8080"
+          ]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
     },
     {
       "endpoint": "/auth/login",
@@ -36,8 +109,28 @@
       "backend": [
         {
           "url_pattern": "/realms/main_one/protocol/openid-connect/token",
-          "host": ["http://keycloak:8080"], 
-          "encoding": "no-op" 
+          "host": ["http://keycloak:8080"],
+          "encoding": "json"
+        }
+      ],
+      "extra_config": {
+         "modifier/martian": {
+          "header.Modifier": {
+            "scope": ["request", "response"],
+            "name": "Content-Type",
+            "value": "application/x-www-form-urlencoded"
+          }
+        }
+      }
+    },
+    {
+      "endpoint": "/auth/refresh",
+      "method": "POST",
+      "backend": [
+        {
+          "url_pattern": "/realms/main_one/protocol/openid-connect/token",
+          "host": ["http://keycloak:8080"],
+          "encoding": "json"
         }
       ],
       "extra_config": {
@@ -53,33 +146,1100 @@
     {
       "endpoint": "/basket/add",
       "method": "POST",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
       "backend": [
         {
-        "url_pattern": "/api/v1/me/basket-items/create",
-        "method": "POST",
-        "host": [
-          "http://basket:8080"
-        ],
-        "encoding": "json"
+          "url_pattern": "/api/v1/me/basket-items/create",
+          "method": "POST",
+          "host": [
+            "http://basket:8080"
+          ],
+          "encoding": "json"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/auth/assign-role",
+      "method": "POST",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/auth/assign-role",
+          "method": "POST",
+          "host": [
+            "http://userservice:8080"
+          ],
+          "encoding": "json"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/keycloak-protected",
+      "method": "GET",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "host": ["http://keycloak:8080"],
+          "url_pattern": "/__health"
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/proxy",
+      "method": "GET",
+      "input_headers": ["Authorization", "X-User-Id", "X-User-Role"],
+      "backend": [
+        {
+          "method": "GET",
+          "url_pattern": "/auth/path",
+          "host": ["http://userservice:8080"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+
+    {
+      "endpoint": "/api/shops",
+      "method": "POST",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/shops",
+          "method": "POST",
+          "encoding": "json",
+          "host": ["http://shop:8080"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/shops/{shopId}",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/shops/{shopId}",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://shop:8080"]
         }
       ]
     },
     {
-    "endpoint": "/keycloak-protected",
-    "extra_config": {
-        "auth/validator": {
-            "alg": "RS256",
-            "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
-            "disable_jwk_security": true
-        }
-    },
-    "backend": [
+      "endpoint": "/api/shops/url/{shopUrl}",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
         {
-          "host":["http://keycloak:8080"],
-          "url_pattern": "/__health"
+          "url_pattern": "/api/shops/url/{shopUrl}",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://shop:8080"]
         }
-    ]
-  }]
+      ]
+    },
+    {
+      "endpoint": "/api/shops",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/shops",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://shop:8080"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/shops/owner/{ownerId}",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/shops/owner/{ownerId}",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://shop:8080"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/shops/my-shops",
+      "method": "GET",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/shops/my-shops",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://shop:8080"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/shops/{shopId}",
+      "method": "PUT",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/shops/{shopId}",
+          "method": "PUT",
+          "encoding": "json",
+          "host": ["http://shop:8080"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/shops/{shopId}",
+      "method": "DELETE",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/shops/{shopId}",
+          "method": "DELETE",
+          "encoding": "json",
+          "host": ["http://shop:8080"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+
+    {
+      "endpoint": "/api/products",
+      "method": "POST",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/products",
+          "method": "POST",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/products/{id}",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/products/{id}",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/products",
+      "method": "GET",
+      "encoding": "json",
+      "input_query_strings": ["shopId"],
+      "backend": [
+        {
+          "url_pattern": "/api/products",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/products/search",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/products/search",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/products/shop/{shopId}/active",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/products/shop/{shopId}/active",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/products/{id}",
+      "method": "PUT",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/products/{id}",
+          "method": "PUT",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/products/{id}",
+      "method": "DELETE",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/products/{id}",
+          "method": "DELETE",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/brands",
+      "method": "POST",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/brands",
+          "method": "POST",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["admin","owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/brands",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/brands",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/categories",
+      "method": "POST",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/categories",
+          "method": "POST",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["admin", "owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/categories",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/categories",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/categories/shop/{shopId}",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/categories/shop/{shopId}",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/brands/shop/{shopId}",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/brands/shop/{shopId}",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://productservice:8083"]
+        }
+      ]
+    },
+
+    {
+      "endpoint": "/api/news",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/api/news",
+          "method": "GET",
+          "encoding": "no-op",
+          "host": ["http://newsservice:8085"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/news/{slug}",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/news/{slug}",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://newsservice:8085"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/news",
+      "method": "POST",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/news",
+          "method": "POST",
+          "encoding": "json",
+          "host": ["http://newsservice:8085"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["admin", "owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/news/{id}",
+      "method": "PUT",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/news/{id}",
+          "method": "PUT",
+          "encoding": "json",
+          "host": ["http://newsservice:8085"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["admin", "owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/news/{id}",
+      "method": "DELETE",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/news/{id}",
+          "method": "DELETE",
+          "encoding": "json",
+          "host": ["http://newsservice:8085"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["admin", "owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/news/admin/all",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/news/admin/all",
+          "method": "GET",
+          "encoding": "no-op",
+          "host": ["http://newsservice:8085"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["admin", "owner"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+
+    {
+      "endpoint": "/api/cart",
+      "method": "GET",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/cart",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://cartservice:8084"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/cart/add",
+      "method": "POST",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/cart/add",
+          "method": "POST",
+          "encoding": "json",
+          "host": ["http://cartservice:8084"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/cart/items/{itemId}",
+      "method": "PATCH",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/cart/items/{itemId}",
+          "method": "PATCH",
+          "encoding": "json",
+          "host": ["http://cartservice:8084"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/cart/items/{itemId}",
+      "method": "DELETE",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/cart/items/{itemId}",
+          "method": "DELETE",
+          "encoding": "json",
+          "host": ["http://cartservice:8084"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/cart",
+      "method": "DELETE",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/cart",
+          "method": "DELETE",
+          "encoding": "json",
+          "host": ["http://cartservice:8084"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+
+    {
+      "endpoint": "/api/files/upload",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/files/upload",
+          "method": "POST",
+          "encoding": "no-op",
+          "host": ["http://fileservice:8082"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/files/upload/{category}",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/files/upload/{category}",
+          "method": "POST",
+          "encoding": "no-op",
+          "host": ["http://fileservice:8082"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/files/download/{fileName}",
+      "method": "GET",
+      "encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/api/files/download/{fileName}",
+          "method": "GET",
+          "encoding": "no-op",
+          "host": ["http://fileservice:8082"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/files/{fileName}",
+      "method": "DELETE",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/files/{fileName}",
+          "method": "DELETE",
+          "encoding": "json",
+          "host": ["http://fileservice:8082"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/delivery-methods",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/delivery-methods",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://orderservice:8087"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/payment-methods",
+      "method": "GET",
+      "encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/api/payment-methods",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://orderservice:8087"]
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/orders",
+      "method": "POST",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/orders",
+          "method": "POST",
+          "encoding": "json",
+          "host": ["http://orderservice:8087"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/orders",
+      "method": "GET",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/orders",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://orderservice:8087"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/orders/{orderId}",
+      "method": "GET",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id"],
+      "backend": [
+        {
+          "url_pattern": "/api/orders/{orderId}",
+          "method": "GET",
+          "encoding": "json",
+          "host": ["http://orderservice:8087"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["user", "owner", "admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    },
+    {
+      "endpoint": "/api/orders/{orderId}/status",
+      "method": "PATCH",
+      "encoding": "json",
+      "input_headers": ["Authorization", "X-User-Id", "Content-Type"],
+      "backend": [
+        {
+          "url_pattern": "/api/orders/{orderId}/status",
+          "method": "PATCH",
+          "encoding": "json",
+          "host": ["http://orderservice:8087"]
+        }
+      ],
+      "extra_config": {
+        "auth/validator": {
+          "alg": "RS256",
+          "jwk_url": "http://keycloak:8080/realms/main_one/protocol/openid-connect/certs",
+          "disable_jwk_security": true,
+          "cache": true,
+          "cache_duration": 900,
+          "roles_key": "realm_access.roles",
+          "roles_key_is_nested": true,
+          "roles": ["admin"],
+          "propagate_claims": [
+            ["sub", "X-User-Id"]
+          ],
+          "operation_debug": true
+        }
+      }
+    }
+
+  ]
+
 }
 
 
