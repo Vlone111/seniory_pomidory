@@ -143,6 +143,13 @@ public class OrderService {
         return orderMapper.toOrderResponseDto(order);
     }
 
+    @Transactional(readOnly = true)
+    public List<OrderResponseDto> getOrdersByShopId(UUID shopId) {
+        log.info("Fetching orders for shop: {}", shopId);
+        List<Order> orders = orderRepository.findByShopIdWithDetails(shopId);
+        return orderMapper.toOrderResponseDtoList(orders);
+    }
+
     @Transactional
     public OrderResponseDto updateOrderStatus(UUID orderId, UpdateOrderStatusDto statusDto) {
         log.info("Updating order status: {} to {}", orderId, statusDto.getStatus());
