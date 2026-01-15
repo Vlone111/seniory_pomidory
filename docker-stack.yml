@@ -1,0 +1,626 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - microservices
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  minio:
+    image: minio/minio
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: admin1234
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - files
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.2
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    command: start-dev --import-realm --metrics-enabled=true
+    ports:
+      - "8080:8080"
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak_postgres
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_PROXY: edge
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+      KC_HTTPS_ENABLED: "false"
+      KC_HOSTNAME_STRICT: "false"
+    volumes:
+      - ./architecture/keycloak/realm-config.json:/opt/keycloak/data/import/realm-config.json
+    networks:
+      - keycloak_net
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/ready"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+
+  krakend:
+    image: devopsfaith/krakend:2.9
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./architecture/krakend:/etc/krakend
+    networks:
+      - keycloak_net
+      - microservices
+      - fashion-network
+    environment:
+      - FC_ENABLE=1
+      - FC_PARTIALS=/etc/krakend
+      - FC_TEMPLATES=/etc/krakend
+    depends_on:
+      - keycloak
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/__health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  productservice:
+    build: ./productservice
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+    ports:
+      - "8083:8083"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: productdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin
+      SERVER_PORT: 8083
+    networks:
+      - microservices
+      - fashion-network
+    depends_on:
+      - db
+      - rabbitmq
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  cartservice:
+    build: ./cartservice
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "8084:8084"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin
+      SERVER_PORT: 8084
+    networks:
+      - microservices
+      - observability
+    depends_on:
+      - redis
+      - rabbitmq
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  newsservice:
+    build: ./newsservice
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "8085:8085"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: newsdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      SERVER_PORT: 8085
+    networks:
+      - microservices
+      - fashion-network
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  orderservice:
+    build: ./orderservice
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "8087:8087"
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: orderdb
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: admin
+      RABBITMQ_PASSWORD: admin
+      SERVER_PORT: 8087
+    networks:
+      - microservices
+    depends_on:
+      - db
+      - rabbitmq
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8087/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  basket:
+    build: ./cartservice
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "8086:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/basket_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    networks:
+      - microservices
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  fileservice:
+    build: ./fileservice
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "8082:8082"
+    environment:
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: admin1234
+      MINIO_BUCKET_NAME: fashionconstruct
+      MINIO_PUBLIC_URL: http://localhost:9000
+      MINIO_SECURE: "false"
+      SERVER_PORT: 8082
+    networks:
+      - microservices
+      - files
+      - fashion-network
+      - observability
+    depends_on:
+      - minio
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  userservice:
+    build: ./userservice
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "8088:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/userservice_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      KEYCLOAK_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_USERNAME: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    networks:
+      - microservices
+      - keycloak_net
+      - fashion-network
+      - observability
+    depends_on:
+      - db
+      - keycloak
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  shop:
+    build: ./shop
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "8089:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/shop_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    networks:
+      - microservices
+      - fashion-network
+      - observability
+    depends_on:
+      - db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./fashion
+      args:
+        VITE_API_URL: http://localhost:8081
+        VITE_FAKE_AUTH: "false"
+    deploy:
+      replicas: 2
+      placement:
+        constraints:
+          - node.role == worker
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "3000:80"
+    networks:
+      - fashion-network
+    depends_on:
+      - krakend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    command: >
+      sh -c "rabbitmq-plugins enable rabbitmq_prometheus && rabbitmq-server"
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+      - "15692:15692"
+    environment:
+      - RABBITMQ_DEFAULT_USER=admin
+      - RABBITMQ_DEFAULT_PASS=admin
+      - RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS=-rabbit disk_free_limit 214748648
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - microservices
+      - observability
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./architecture/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  loki:
+    image: grafana/loki:2.9.2
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./architecture/loki/loki-config.yaml:/etc/loki/loki-config.yaml
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - observability
+
+  tempo:
+    image: grafana/tempo:2.4.1
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./architecture/tempo/tempo.yaml:/etc/tempo/tempo.yaml
+    command:
+    - -config.file=/etc/tempo/tempo.yaml
+    networks:
+      - observability
+
+  alloy:
+    image: grafana/alloy:latest
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    user: root
+    ports:
+      - "9080:9080"
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./architecture/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/log:/var/log:ro
+    environment:
+      GRAFANA_LOKI_URL: http://loki:3100/loki/api/v1/push
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:9080
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    networks:
+      - observability
+
+  grafana:
+    image: grafana/grafana:10.3.1
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "3400:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: true
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_METRICS_ENABLED: "true"
+    volumes:
+      - ./architecture/grafana/provisioning:/etc/grafana/provisioning
+      - ./architecture/grafana/dashboards:/var/lib/grafana/dashboards
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - observability
+
+  db:
+    image: postgres:15-alpine
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == worker
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_MULTIPLE_DATABASES: basket_db,shop_db,keycloak_postgres,userservice_db,productdb,cartdb,newsdb,orderdb
+    volumes:
+      - ./init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
+      - postgres_data:/var/lib/postgresql_data
+    ports:
+      - "5432:5432"
+    networks:
+      - microservices
+      - keycloak_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -p 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+networks:
+  keycloak_net:
+    driver: overlay
+    attachable: true
+  microservices:
+    driver: overlay
+    attachable: true
+  observability:
+    driver: overlay
+    attachable: true
+  files:
+    driver: overlay
+    attachable: true
+  fashion-network:
+    driver: overlay
+    attachable: true
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
