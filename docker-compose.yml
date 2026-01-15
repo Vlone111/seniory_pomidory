@@ -150,6 +150,9 @@ services:
       RABBITMQ_USERNAME: admin
       RABBITMQ_PASSWORD: admin
       SERVER_PORT: 8087
+      YANDEX_DELIVERY_API_TOKEN: y0__xCd-KvSCBix9Bwgp8OMiRapyG8u0V5lGR_NrN_ay2g-CTuTww
+      YANDEX_DELIVERY_SOURCE_STATION: 05e809bb-4521-42d9-a936-0fb0744c0fb3
+      YANDEX_DELIVERY_DEFAULT_WEIGHT: 10000
     depends_on:
       db:
         condition: service_healthy
@@ -159,7 +162,7 @@ services:
       - microservices
 
   basket:
-    build: ./basket
+    build: ./cartservice
     container_name: basket
     ports:
       - "8086:8080"

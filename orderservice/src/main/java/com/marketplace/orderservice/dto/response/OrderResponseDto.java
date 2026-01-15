@@ -27,12 +27,15 @@ public class OrderResponseDto {
     private LocalDateTime createdAt;
     private List<OrderItemResponseDto> items;
 
-    // CDEK delivery fields
-    private String cdekPvzCode;
-    private String cdekPvzAddress;
-    private String cdekCityCode;
-    private Integer cdekTariffCode;
-    private BigDecimal cdekDeliverySum;
-    private Integer cdekPeriodMin;
-    private Integer cdekPeriodMax;
+    // Yandex Delivery fields
+    private String yandexPickupPointId;
+    private String yandexPickupPointAddress;
+    private String yandexPickupPointName;
+    private Double yandexLatitude;
+    private Double yandexLongitude;
+    private BigDecimal yandexDeliveryPrice;
+    private Integer yandexDeliveryTerm;
+    private String yandexPickupPointType;
+    private String yandexWorkSchedule;
+    private String yandexPhone;
 }

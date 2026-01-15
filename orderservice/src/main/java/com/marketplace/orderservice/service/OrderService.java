@@ -61,9 +61,9 @@ public class OrderService {
                 .map(item -> item.getPricePerItem().multiply(BigDecimal.valueOf(item.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Use CDEK delivery sum if present, otherwise use delivery method price
-        BigDecimal deliveryPrice = (requestDto.getCdekDelivery() != null && requestDto.getCdekDelivery().getDeliverySum() != null)
-                ? requestDto.getCdekDelivery().getDeliverySum()
+        // Use Yandex delivery price if present, otherwise use delivery method price
+        BigDecimal deliveryPrice = (requestDto.getYandexDelivery() != null && requestDto.getYandexDelivery().getDeliveryPrice() != null)
+                ? requestDto.getYandexDelivery().getDeliveryPrice()
                 : deliveryMethod.getPrice();
 
         BigDecimal totalAmount = itemsTotal
@@ -79,17 +79,20 @@ public class OrderService {
                 .status(OrderStatus.NEW)
                 .totalAmount(totalAmount);
 
-        // Add CDEK delivery data if present
-        if (requestDto.getCdekDelivery() != null) {
-            var cdek = requestDto.getCdekDelivery();
+        // Add Yandex delivery data if present
+        if (requestDto.getYandexDelivery() != null) {
+            var yandex = requestDto.getYandexDelivery();
             orderBuilder
-                    .cdekPvzCode(cdek.getPvzCode())
-                    .cdekPvzAddress(cdek.getPvzAddress())
-                    .cdekCityCode(cdek.getCityCode())
-                    .cdekTariffCode(cdek.getTariffCode())
-                    .cdekDeliverySum(cdek.getDeliverySum())
-                    .cdekPeriodMin(cdek.getPeriodMin())
-                    .cdekPeriodMax(cdek.getPeriodMax());
+                    .yandexPickupPointId(yandex.getPickupPointId())
+                    .yandexPickupPointAddress(yandex.getPickupPointAddress())
+                    .yandexPickupPointName(yandex.getPickupPointName())
+                    .yandexLatitude(yandex.getLatitude())
+                    .yandexLongitude(yandex.getLongitude())
+                    .yandexDeliveryPrice(yandex.getDeliveryPrice())
+                    .yandexDeliveryTerm(yandex.getDeliveryTerm())
+                    .yandexPickupPointType(yandex.getPickupPointType())
+                    .yandexWorkSchedule(yandex.getWorkSchedule())
+                    .yandexPhone(yandex.getPhone());
         }
 
         Order order = orderBuilder.build();

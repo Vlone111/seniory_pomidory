@@ -30,5 +30,5 @@ public class OrderRequestDto {
     @Valid
     private List<OrderItemRequestDto> items;
 
-    private CdekDeliveryDto cdekDelivery;
+    private YandexDeliveryDto yandexDelivery;
 }

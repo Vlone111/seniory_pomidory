@@ -17,4 +17,5 @@ public class DeliveryMethodDto {
     private UUID id;
     private String name;
     private BigDecimal price;
+    private String description;
 }

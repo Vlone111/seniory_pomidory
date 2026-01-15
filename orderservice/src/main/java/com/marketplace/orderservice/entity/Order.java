@@ -58,27 +58,36 @@ public class Order {
     @Builder.Default
     private List<OrderItem> items = new ArrayList<>();
 
-    // CDEK delivery fields
-    @Column(name = "cdek_pvz_code", length = 50)
-    private String cdekPvzCode;
+    // Yandex Delivery fields
+    @Column(name = "yandex_pickup_point_id", length = 100)
+    private String yandexPickupPointId;
 
-    @Column(name = "cdek_pvz_address", length = 500)
-    private String cdekPvzAddress;
+    @Column(name = "yandex_pickup_point_address", length = 500)
+    private String yandexPickupPointAddress;
 
-    @Column(name = "cdek_city_code", length = 20)
-    private String cdekCityCode;
+    @Column(name = "yandex_pickup_point_name", length = 255)
+    private String yandexPickupPointName;
 
-    @Column(name = "cdek_tariff_code")
-    private Integer cdekTariffCode;
+    @Column(name = "yandex_latitude")
+    private Double yandexLatitude;
 
-    @Column(name = "cdek_delivery_sum", precision = 10, scale = 2)
-    private BigDecimal cdekDeliverySum;
+    @Column(name = "yandex_longitude")
+    private Double yandexLongitude;
 
-    @Column(name = "cdek_period_min")
-    private Integer cdekPeriodMin;
+    @Column(name = "yandex_delivery_price", precision = 10, scale = 2)
+    private BigDecimal yandexDeliveryPrice;
 
-    @Column(name = "cdek_period_max")
-    private Integer cdekPeriodMax;
+    @Column(name = "yandex_delivery_term")
+    private Integer yandexDeliveryTerm;
+
+    @Column(name = "yandex_pickup_point_type", length = 50)
+    private String yandexPickupPointType;
+
+    @Column(name = "yandex_work_schedule", length = 500)
+    private String yandexWorkSchedule;
+
+    @Column(name = "yandex_phone", length = 50)
+    private String yandexPhone;
 
     public void addItem(OrderItem item) {
         items.add(item);

@@ -55,6 +55,13 @@ yookassa:
   secret-key: ${YOOKASSA_SECRET_KEY:test_LZEYYDY3inXYgAlSiROF3a7L4h4z0_cxZ2l4IuMMPxM}
   api-url: ${YOOKASSA_API_URL:https://api.yookassa.ru/v3/payments}
 
+yandex:
+  delivery:
+    api-url: ${YANDEX_DELIVERY_API_URL:https://b2b.taxi.yandex.net/b2b/cargo/integration/v2}
+    api-token: ${YANDEX_DELIVERY_API_TOKEN:y0__xCd-KvSCBix9Bwgp8OMiRapyG8u0V5lGR_NrN_ay2g-CTuTww}
+    source-platform-station: ${YANDEX_DELIVERY_SOURCE_STATION:05e809bb-4521-42d9-a936-0fb0744c0fb3}
+    default-weight: ${YANDEX_DELIVERY_DEFAULT_WEIGHT:10000}
+
 logging:
   level:
     com.marketplace.orderservice: ${LOG_LEVEL:INFO}
